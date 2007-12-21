@@ -18,23 +18,21 @@
 module Main () where
 import Monad (liftM) -- Is there any particular order you're s'posed to go in?
 import Data.List (isPrefixOf)
-import Data.List ()
 import Control.Concurrent (forkIO)
-import System.IO.Unsafe -- (unsafeInterleaveIO)
-import System.IO.Unsafe ()
-import qualified Data.ByteString.Char8 as B (ByteString(), readFile, pack, unpack, words)
+import System.IO.Unsafe (unsafeInterleaveIO)
+import qualified Data.ByteString.Lazy.Char8 as B (ByteString(), readFile, pack, unpack, lines)
 import Text.HTML.TagSoup (parseTags, Tag(TagOpen))
 import Text.HTML.Download (openURL)
-import CLIUtils (deleteL)
 
 main :: IO ()
-main = ((forkIO . archiveBot) =<< (liftM (take 1000) $ liftM B.words $ B.readFile en)) >> deleteL 1000 en >> main
+main = (archiveBot =<< (liftM B.lines $ B.readFile en)) >> return ()
               where en = "/home/gwern/bin/pywikipedia/en"
 
 archiveBot :: [B.ByteString] -> IO ()
 archiveBot ls = mapM_ (archiveURL) =<< (liftM uniq $ mapM fetchArticleURLs ls)
                 where uniq :: [[B.ByteString]] -> [B.ByteString] -- So hideous
-                      uniq = filter (\x -> if x == B.pack "http://wikimediafoundation.org/" || x == B.pack "http://wikimediafoundation.org/wiki/Deductibility_of_donations" || x == B.pack "http://wikimediafoundation.org/wiki/Fundraising" || x == B.pack "http://wikimediafoundation.org/wiki/Privacy_policy" || x == B.pack "http://www.mediawiki.org/" || x == B.pack "http://www.wikimediafoundation.org" then False else True) . concat
+                      uniq = filter (`notElem` exceptions) . concat
+                      exceptions = map B.pack ["http://wikimediafoundation.org/", "http://wikimediafoundation.org/wiki/Deductibility_of_donations", "http://wikimediafoundation.org/wiki/Fundraising", "http://wikimediafoundation.org/wiki/Privacy_policy", "http://www.mediawiki.org/", "http://www.wikimediafoundation.org"]
 
 fetchArticleURLs :: B.ByteString -> IO [B.ByteString]
 -- fetchArticleURLs article = liftM extractURLs $ unsafeInterleaveIO $ openURL("http://en.wikipedia.org/wiki/" ++ B.unpack article)
@@ -44,4 +42,4 @@ extractURLs :: String -> [B.ByteString]
 extractURLs arg = map B.pack $ [x | TagOpen "a" atts <- (parseTags arg), (_,x) <- atts, "http://" `isPrefixOf` x]
 
 archiveURL :: B.ByteString -> IO ()
-archiveURL url = openURL("www.webcitation.org/archive?url=" ++ (B.unpack url) ++ "&email=foo@mailinator.com") >> return ();
+archiveURL url = forkIO (openURL("www.webcitation.org/archive?url=" ++ (B.unpack url) ++ "&email=marudubshinki@gmail.com") >> return()) >> return ();
