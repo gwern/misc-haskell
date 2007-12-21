@@ -1,8 +1,7 @@
-#!/usr/bin/env runhaskell
-
+module Main () where
 import qualified Data.ByteString.Char8 as B (unwords, words, readFile, putStrLn)
 import Control.Monad (liftM, replicateM)
-import System.Random (getStdRandom, randomR, mkStdGen)
+import System.Random (getStdRandom, randomR) -- , mkStdGen)
 
 main :: IO ()
 main = do list <- liftM B.words $ B.readFile file -- :: IO [Data.ByteString.Base.ByteString]
@@ -33,7 +32,7 @@ main list = list !! (iter number)
 
 (randomR :: RandomGen g => (a, a) -> g -> (a, g))
 
--}
+
 
 n :: [b] -> b
 n f = snd $ m $ zip [2..] f
@@ -60,14 +59,15 @@ pick rl = unsafePerformIO $ do
         let c' = if r == 1 then y else x
         pick' c' ys (z+1)
 
- > pick :: [a] -> IO a
- > pick []     = undefined
- > pick [x]    = do return x
- > pick (x:xs) = pick' x xs 2
- >
- > pick' :: (Num p, Random p) => t -> [t] -> p -> IO t
- > pick' curr []          _    = do return curr
- > pick' curr (next:rest) prob
- >   = do r <- getStdRandom (randomR (1,prob))
- >        let curr' = if r == 1 then next else curr
- >        pick' curr' rest (prob+1)
+--  > pick :: [a] -> IO a
+--  > pick []     = undefined
+--  > pick [x]    = do return x
+--  > pick (x:xs) = pick' x xs 2
+--  >
+--  > pick' :: (Num p, Random p) => t -> [t] -> p -> IO t
+--  > pick' curr []          _    = do return curr
+--  > pick' curr (next:rest) prob
+--  >   = do r <- getStdRandom (randomR (1,prob))
+--  >        let curr' = if r == 1 then next else curr
+--  >        pick' curr' rest (prob+1)
+-}
