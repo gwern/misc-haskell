@@ -2,9 +2,8 @@
 
 import HSH (runSL)
 import Monad (liftM)
-import Data.List (genericIndex)
 
 main :: IO ()
-main = do usage <- liftM (flip genericIndex (1 :: Integer)) (liftM words $ runSL ("grep -- eth0 /proc/net/dev"))
-          putStrLn $ show ((read usage :: Integer) `div` gig) ++ " gigabytes used."
-                   where gig = 1073741824 :: Integer -- 2^30
+main = do usage <- liftM (drop 5 . concat . take 1 . words) $ runSL $ "grep -- eth1 /proc/net/dev"
+          putStrLn $ ((take 10) $ show ((read usage :: Double) / gig)) ++ " gigabytes used."
+                   where gig = 2^(30 :: Integer) -- 1073741824
