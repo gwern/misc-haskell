@@ -37,19 +37,19 @@ module CLIUtils
              cut,
              cutR,
              deleteL,
-             mv,
-             cp,
+--             mv,
+--             cp,
              lengthF,
              pager,
              isCompressed
             ) where
-import Data.List (genericLength, genericTake, genericDrop, genericIndex, nub, intersperse, delete, isPrefixOf, foldl')
+import Data.List (genericTake, genericDrop, genericIndex, nub, intersperse, delete, isPrefixOf, foldl')
 import Data.Char (toUpper, isSpace, ord)
 import Text.Printf ( printf )
 -- import System.Environment (getProgName, getArgs)
-import System.IO
+-- import System.IO
 import Monad (liftM)
-import System.Directory (copyFile, renameFile)
+-- import System.Directory (copyFile, renameFile)
 import qualified Data.ByteString.Char8 as B (lines, unlines, readFile, writeFile)
 import HSH (runIO)
 import System.Environment (getEnv)
@@ -139,6 +139,9 @@ main = do
 io :: ([String] -> [String]) -> IO ()
 io f = interact (unlines . f . lines)
 
+showln :: (Show a) => a -> [Char]
+showln a = show a ++  "\n"
+
 -- echo.
 echo :: [String] -> [String]
 echo = id
@@ -152,7 +155,7 @@ rpt :: [a] -> [a]
 rpt = cycle
 
 -- Preserve first n lines
-headN :: Integer -> String -> String
+headN :: Int -> String -> String
 headN n ss = concat $ genericTake n $ lines ss
 
 -- Return only the first 10
@@ -176,13 +179,13 @@ rev_w = map (unwords . reverse . words)
 
 -- Count number of characters in a file (like wc -c)
 wc_c, wc_l, wc_w :: String -> String
-wc_c = showln . genericLength
+wc_c = showln . length
 
 -- Count number of lines in a file, like wc -l
-wc_l = showln . genericLength . lines
+wc_l = showln . length . lines
 
 -- Count number of words in a file (like wc -w)
-wc_w = showln . genericLength . words
+wc_w = showln . length . words
 
 -- double space a file
 space, unspace :: [String] -> [String]
@@ -244,30 +247,30 @@ cksum = foldl' k 5381
  where k h c = h * 33 + ord c
 
 {- Delete first n lines of a file. May have problems if file size exceeds physical memory. -}
-deleteL :: Integer -> FilePath -> IO ()
+deleteL :: Int -> FilePath -> IO ()
 deleteL n file = B.writeFile file =<< (liftM dropN $ B.readFile file)
                  where dropN = B.unlines . genericDrop n . B.lines
 
 -- TODO
-mv, cp :: FilePath -> FilePath -> IO ()
-mv = renameFile
-cp = copyFile
-rm []     = succeed
-rm (x:xs) = removeFile x >> rm xs
+-- mv, cp :: FilePath -> FilePath -> IO ()
+-- mv = renameFile
+-- cp = copyFile
+-- rm []     = succeed
+-- rm (x:xs) = removeFile x >> rm xs
 
-rmdir []     = succeed
-rmdir (x:xs) = removeDirectory x >> rmdir xs
+-- rmdir []     = succeed
+-- rmdir (x:xs) = removeDirectory x >> rmdir xs
 
-recurmdir []     = succeed
-recurmdir (x:xs) = removeDirectoryRecursive x >> recurmdir xs
+-- recurmdir []     = succeed
+-- recurmdir (x:xs) = removeDirectoryRecursive x >> recurmdir xs
 
-mvdir []       = succeed
-mvdir [_]      = putStrLn "unmatched amount of options" >> failure
-mvdir (o:n:xs) = renameDirectory o n >> mvdir xs
-uname _ = do
-           s <- getSystemID
-           putStrLn (concat (intersperse " " [systemName s,nodeName s,release s,version s,machine s]))
-           succeed
+-- mvdir []       = succeed
+-- mvdir [_]      = putStrLn "unmatched amount of options" >> failure
+-- mvdir (o:n:xs) = renameDirectory o n >> mvdir xs
+-- uname _ = do
+--            s <- getSystemID
+--            putStrLn (concat (intersperse " " [systemName s,nodeName s,release s,version s,machine s]))
+--            succeed
 
 -- TODO
 
@@ -275,22 +278,22 @@ uname _ = do
 > split ' ' "foo bar baz" -> ["foo","bar","baz"] -}
 split :: Char -> String -> [String]
 split c s = case rest of
-	      []     -> [chunk]
-	      _:rst -> chunk : split c rst
+              []     -> [chunk]
+              _:rst -> chunk : split c rst
     where (chunk, rest) = break (==c) s
 
 {- cutR [2..4] ' ' "foo bar baz quux foobar" -> "bar baz quux"
    Might be better to use a Map, but that makes the function much longer for marginal
    performance benefit. -}
-cutR :: Char -> [Integer] -> String -> String
+cutR :: Char -> [Int] -> String -> String
 cutR delim ns y = concat $ intersperse [delim] $ map (\z -> string `genericIndex` (z - 1)) ns
     where string = split delim y
 
-cut :: Char -> Integer -> String -> String
+cut :: Char -> Int -> String -> String
 cut dlmtr pos string = cutR dlmtr [pos] string
 
-lengthF :: FilePath -> IO Integer
-lengthF = fmap genericLength . fmap lines . readFile
+lengthF :: FilePath -> IO Int
+lengthF = fmap length . fmap lines . readFile
 
 pager :: String -> IO ()
 pager file = do l <- lengthF file
@@ -300,7 +303,7 @@ pager file = do l <- lengthF file
                       term = flip any ["linux", "dumb", "console"] . (==) :: String -> Bool
                       termVar = getEnv "TERM" :: IO String
 
-master :: Integer -> Bool -> String -> String
+master :: Int -> Bool -> String -> String
 master n t file
        | isCompressed file = "less"
        | otherwise = (if t && (n > 50)  then "less"  else if n > 30 then "less" else "cat")
