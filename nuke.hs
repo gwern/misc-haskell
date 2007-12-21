@@ -1,19 +1,13 @@
-module Nuke
-    where
+
+-- module Nuke (main)
+--   where
 -- TODO: work in radiation deaths.
 
-import Test.QuickCheck (arbitrary, check, coarbitrary, configMaxTest, defaultConfig,
-                                 Arbitrary(), Testable())
+import Pcheck (parCheck, parTest)
+import Test.QuickCheck
 import Monad (liftM3)
 
-type KiloPascal = PosReal
-type PSI = PosReal
-type Meters = PosReal
-type W = PosReal -- Note w is always in kilotons.
-type Joule = PosReal
-type Time = PosReal
-
-{- For many equations and results here, it is nonsensical to have negative results, but we don't want
+{- For many equations and results, it is nonsensical to have negative results, but we don't want
 to use solely natural numbers because then we lose precision. So we define a PosReal type which tries
 to define the subset of real numbers which are 0 or positive; this way the type system checks for negative
 results instead of every other function having conditionals checking for negative input or output. -}
@@ -48,15 +42,13 @@ instance Arbitrary PosReal where
     arbitrary = liftM3 fraction arbitrary arbitrary arbitrary
         where fraction :: Integer -> Integer -> Integer -> PosReal
               fraction a b c = fromInteger a + (fromInteger b / (abs (fromInteger c) + 1))
-    coarbitrary x = coarbitrary (x, x)
 
--- For numerical tests, test an order of magnitude more instances
-deepCheck :: (Test.QuickCheck.Testable a) => a -> IO ()
-deepCheck = check (defaultConfig { configMaxTest = 10000})
-
--- The array of tests
-test :: IO ()
-test = kpaTest >> psiTest >> energyTest >> thermalMaxTest >> timeMaxTest
+type KiloPascal = PosReal
+type PSI = PosReal
+type Meters = PosReal
+type W = PosReal -- Note w is always in kilotons.
+type Joule = PosReal
+type Time = PosReal
 
 -- Characterizes the output of a nuclear weapon
 data Output = Output {
@@ -64,16 +56,19 @@ data Output = Output {
       blast :: PosReal,
       nuclear_radiation :: PosReal } deriving (Show, Eq)
 
+main :: IO ()
+main = do bool <- parTest [kpaTest, psiTest, energyTest, thermalMaxTest, timeMaxTest, kpaTest] --, psiTest, energyTest, thermalMaxTest, timeMaxTest, kpaTest, psiTest, energyTest, thermalMaxTest, timeMaxTest]
+          if bool then print "Success" else print "Failure"
 -- Units
-kpaTest :: IO ()
-kpaTest = deepCheck (\s -> kpa s >= 0)
+kpaTest :: IO Bool
+kpaTest = parCheck (\s -> kpa s >= 0) 1000
 kpa :: KiloPascal -> PSI
 kpa a
     | (a > 0) = 0.145 * a
     | otherwise = 0
 
-psiTest :: IO ()
-psiTest = deepCheck (\s -> psi s >= s)
+psiTest :: IO Bool
+psiTest = parCheck (\s -> psi s >= s) 100
 psi :: PSI -> KiloPascal
 psi = (6.895 *)
 
@@ -90,10 +85,12 @@ height w = 60 * ((fromPosReal w)**(1/3))
 
 {- Calculate total energy of a given kilotonnage. Answer in joules.
    This works because critical mass gives a lower kilotonnage bound for fission bombs. -}
-energyTest :: IO ()
-energyTest = deepCheck (\s -> energy s == 0 || energy s >= 8.372e11)
-energy :: Meters -> Joule
-energy = (4.186 * joule *)
+energyTest :: IO Bool
+energyTest = parCheck (\s -> energy s == 0 || energy s >= 2.0929999e12) 100
+energy :: W -> Joule
+energy s
+    | s >= 0.5 = 4.186 * joule * s
+    | otherwise = 0
          where joule = 1000000000000 :: PosReal -- 10^12
 
 regularNuke :: W -> Output
@@ -115,7 +112,9 @@ radiationNuke w = Output {
    clouds, 1.5 for singly either). This is how many joules of heat per square inch at a given distance for
    given kilotonnage (weather included). -}
 totalPointImpact :: W -> Meters -> PosReal -> PosReal -> Joule
-totalPointImpact w r clouds snow = (0.35 * (weatherMultiplier snow clouds) * (energy w)) / (4.0 * reducedPrecisionPi * r)
+totalPointImpact w r clouds snow
+    | r /= 0 = (0.35 * (weatherMultiplier snow clouds) * (energy w)) / (4.0 * reducedPrecisionPi * r)
+    | otherwise = energy w -- If 0, then at ground zero and no diminution b/c of distance
     where
       weatherMultiplier :: PosReal -> PosReal -> PosReal
       weatherMultiplier a b
@@ -130,13 +129,13 @@ peakOverPressureUnderWater w r = 1.07e7 * (1 / (w / 0.37)) * (1 / (r / (-1.18)))
 
 -- thermal deaths - pmax = kJ/m^2
 --thermalMax = 270 -- incapacitation
-thermalMaxTest :: IO ()
-thermalMaxTest = deepCheck (\s -> (thermalMax s s s s) >= 0)
+thermalMaxTest :: IO Bool
+thermalMaxTest = parCheck (\s -> (thermalMax s s s s) >= 0) 100
 thermalMax :: Meters -> Joule -> Joule -> Joule -> Joule
 thermalMax w r clouds snow = (0.38 * (totalPointImpact w r clouds snow)) / timeMax w
 
-timeMaxTest :: IO ()
-timeMaxTest = deepCheck (\s -> timeMax s >= 0)
+timeMaxTest :: IO Bool
+timeMaxTest = parCheck (\s -> timeMax s >= 0) 100
 timeMax :: W -> Time
 timeMax w = 0.0417 * (1 / (w / 0.44))
 
@@ -331,7 +330,7 @@ Middle East war
 USSR - China attack
 India Pakistan war
 Mediterranean war
-Hongkong variant
+Hong Kong variant
 
 SEATO decapitating
 Cuban provocation
@@ -341,13 +340,13 @@ Cuban paramilitary
 
 Nicaraguan preemptive
 Pacific territorial
-Burmese theatrewide
+Burmese theatre-wide
 Turkish decoy
 NATO first strike
 
 Argentina escalation
 Iceland maximum
-Arabian theatrewide
+Arabian theatre-wide
 U.S. subversion
 Australian maneuver
 
@@ -378,7 +377,7 @@ Cambodian heavy
 Pact medium
 Arctic minimal
 Mexican domestic
-Taiwan theatrewide
+Taiwan theatre-wide
 Pacific maneuver
 
 Portugal revolution
@@ -444,7 +443,7 @@ Spain counter
 Arabian offensive
 Chad interdiction
 Taiwan misdirection
-Bangladesh theatrewide
+Bangladesh theatre-wide
 Ethiopian local
 
 Italian takeover
@@ -497,7 +496,7 @@ Chad option
 
 Bangladesh war
 Burmese containment
-Asian theatrewide
+Asian theatre-wide
 Bulgarian clandestine
 Greenland incursion
 
