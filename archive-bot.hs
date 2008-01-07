@@ -35,11 +35,10 @@ archiveBot ls = mapM_ (archiveURL) =<< (liftM uniq $ mapM fetchArticleURLs ls)
                       exceptions = map B.pack ["http://wikimediafoundation.org/", "http://wikimediafoundation.org/wiki/Deductibility_of_donations", "http://wikimediafoundation.org/wiki/Fundraising", "http://wikimediafoundation.org/wiki/Privacy_policy", "http://www.mediawiki.org/", "http://www.wikimediafoundation.org"]
 
 fetchArticleURLs :: B.ByteString -> IO [B.ByteString]
--- fetchArticleURLs article = liftM extractURLs $ unsafeInterleaveIO $ openURL("http://en.wikipedia.org/wiki/" ++ B.unpack article)
 fetchArticleURLs = fmap extractURLs . unsafeInterleaveIO . openURL . ("http://en.wikipedia.org/wiki/" ++) . B.unpack
 
 extractURLs :: String -> [B.ByteString]
 extractURLs arg = map B.pack $ [x | TagOpen "a" atts <- (parseTags arg), (_,x) <- atts, "http://" `isPrefixOf` x]
 
 archiveURL :: B.ByteString -> IO ()
-archiveURL url = forkIO (openURL("www.webcitation.org/archive?url=" ++ (B.unpack url) ++ "&email=marudubshinki@gmail.com") >> return()) >> return ();
+archiveURL url = forkIO (openURL("www.webcitation.org/archive?url=" ++ (B.unpack url) ++ "&email=marudubshinki0@gmail.com") >> return()) >> return ();
