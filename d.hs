@@ -3,7 +3,7 @@
 import System.Environment (getArgs, getEnv)
 import qualified Data.ByteString.Char8 as B (ByteString(), readFile,
                                              pack, lines, isInfixOf, putStr)
-import Control.Monad (join, liftM, liftM2)
+import Control.Monad (liftM, liftM2)
 
 main :: IO ()
 main = (liftM (head) $ liftM2 (filter . B.isInfixOf) dir dirs) >>= B.putStr
@@ -15,4 +15,5 @@ main = (liftM (head) $ liftM2 (filter . B.isInfixOf) dir dirs) >>= B.putStr
          home = getEnv "HOME"
 
          dirs :: IO [B.ByteString]  -- storage file
-         dirs = (liftM B.lines) $ join $ liftM (B.readFile . (++ "/.dload-dirs")) home
+--         dirs = (liftM B.lines) $ join $ liftM (B.readFile . (++ "/.dload-dirs")) home
+         dirs = fmap B.lines (B.readFile . (++ "/.dload-dirs") =<< home)
