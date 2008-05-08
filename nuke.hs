@@ -1,3 +1,4 @@
+{-# LANGUAGE GeneralizedNewtypeDeriving #-} -- For deriving Enum
 
 -- module Nuke (main)
 --    where
@@ -8,11 +9,22 @@ import Test.QuickCheck
 import Control.Monad (liftM3)
 import Data.List (sort)
 
-{- For many equations and results, it is nonsensical to have negative results, but we don't want
+-- Test apparatus
+main :: IO ()
+main = kpaTest >> psiTest >> energyTest >> thermalMaxTest >> timeMaxTest >> kpaTest >> return ()
+
+deepCheck :: (Testable prop) => prop -> IO Bool
+deepCheck = quickCheckWith 1000 2 1000000
+
+-- | Test whether a function monotonically increases, like many of these should.
+increasing :: (Enum a, Num a, Ord b) => (a -> b) -> a -> Bool
+increasing s l = let m = map s [1..l] in (sort m == m)
+
+{- | For many equations and results, it is nonsensical to have negative results, but we don't want
 to use solely natural numbers because then we lose precision. So we define a PosReal type which tries
 to define the subset of real numbers which are 0 or positive; this way the type system checks for negative
 results instead of every other function having conditionals checking for negative input or output. -}
-newtype PosReal = MakePosReal Float deriving (Show, Eq, Ord)
+newtype PosReal = MakePosReal Float deriving (Show, Eq, Ord, Enum)
 
 -- | Basic numerical operations on positive reals
 instance Num PosReal where
