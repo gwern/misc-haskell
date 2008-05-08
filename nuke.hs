@@ -1,11 +1,12 @@
 
 -- module Nuke (main)
---   where
+--    where
 -- TODO: work in radiation deaths.
 
 import Pcheck (parCheck, parTest)
 import Test.QuickCheck
-import Monad (liftM3)
+import Control.Monad (liftM3)
+import Data.List (sort)
 
 {- For many equations and results, it is nonsensical to have negative results, but we don't want
 to use solely natural numbers because then we lose precision. So we define a PosReal type which tries
@@ -13,7 +14,7 @@ to define the subset of real numbers which are 0 or positive; this way the type 
 results instead of every other function having conditionals checking for negative input or output. -}
 newtype PosReal = MakePosReal Float deriving (Show, Eq, Ord)
 
--- Basic numerical operations on positive reals
+-- | Basic numerical operations on positive reals
 instance Num PosReal where
     fromInteger = toPosReal . fromInteger
     x + y = MakePosReal (fromPosReal x + fromPosReal y)
@@ -24,12 +25,12 @@ instance Num PosReal where
     signum x | x >= 0 = 1
              | otherwise = (-1)
 
--- Define division on PosReals
+-- | Define division on PosReals
 instance Fractional PosReal where
     x / y = toPosReal ((fromPosReal x) / (fromPosReal y))
     fromRational x = MakePosReal (fromRational x)
 
--- Positive reals are truncated at 0
+-- | Note that positive reals are truncated at 0.
 toPosReal :: Float -> PosReal
 toPosReal x
     | x < 0     = MakePosReal 0
@@ -37,7 +38,7 @@ toPosReal x
 fromPosReal :: PosReal -> Float
 fromPosReal (MakePosReal i) = i
 
--- Define an instance to allow QuickCheck operations
+-- | Define an instance to allow QuickCheck operations
 instance Arbitrary PosReal where
     arbitrary = liftM3 fraction arbitrary arbitrary arbitrary
         where fraction :: Integer -> Integer -> Integer -> PosReal
@@ -46,7 +47,7 @@ instance Arbitrary PosReal where
 type KiloPascal = PosReal
 type PSI = PosReal
 type Meters = PosReal
-type W = PosReal -- Note w is always in kilotons.
+type W = PosReal -- ^ Note W is always in kilotons.
 type Joule = PosReal
 type Time = PosReal
 
@@ -83,7 +84,7 @@ height :: W -> Float
 --height w = 60 * (1 / (w * w * w)) -- w^3
 height w = 60 * ((fromPosReal w)**(1/3))
 
-{- Calculate total energy of a given kilotonnage. Answer in joules.
+{- | Calculate total energy of a given kilotonnage. Answer in joules.
    This works because critical mass gives a lower kilotonnage bound for fission bombs. -}
 energyTest :: IO Bool
 energyTest = parCheck (\s -> energy s == 0 || energy s >= 2.0929999e12) 100
@@ -99,7 +100,7 @@ regularNuke w = Output { heat=(0.35 * energy w), -- 35% heat
                          nuclear_radiation=(0.15 * energy w) -- 15% non-thermal radiation
                        }
 
-{- A radiation weapon trades off a decreased thermal and blast energy against a considerably
+{- | A radiation weapon trades off a decreased thermal and blast energy against a considerably
    increased radiation yield. It is defined in terms of regularNuke because it just modifies it. -}
 radiationNuke :: W -> Output
 radiationNuke w = Output {
@@ -108,9 +109,9 @@ radiationNuke w = Output {
                     blast=(0.50 * energy (0.50 * w)),
                     nuclear_radiation=(0.15 * energy (10.0 * w)) } -- 10x non-thermal radiation!
 
-{- Answer in joules /m^2. r = distance from impact/radius; t = correction factor (1.5^2 for snow & high
+{- | Answer in joules /m^2. r = distance from impact/radius; t = correction factor (1.5^2 for snow & high
    clouds, 1.5 for singly either). This is how many joules of heat per square inch at a given distance for
-   given kilotonnage (weather included). -}
+   given kilotonnage (weather roughly included). -}
 totalPointImpact :: W -> Meters -> PosReal -> PosReal -> Joule
 totalPointImpact w r clouds snow
     | r /= 0 = (0.35 * (weatherMultiplier snow clouds) * (energy w)) / (4.0 * reducedPrecisionPi * r)
