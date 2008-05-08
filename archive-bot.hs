@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 {- Module      :  Main.hs
    License     :  public domain
    Maintainer  :  Gwern Branwen <gwern0@gmail.com>
@@ -32,7 +33,7 @@ archiveBot :: [B.ByteString] -> IO ()
 archiveBot ls = mapM_ (archiveURL) =<< (liftM uniq $ mapM fetchArticleURLs ls)
                 where uniq :: [[B.ByteString]] -> [B.ByteString] -- So hideous
                       uniq = filter (`notElem` exceptions) . concat
-                      exceptions = map B.pack ["http://wikimediafoundation.org/", "http://wikimediafoundation.org/wiki/Deductibility_of_donations", "http://wikimediafoundation.org/wiki/Fundraising", "http://wikimediafoundation.org/wiki/Privacy_policy", "http://www.mediawiki.org/", "http://www.wikimediafoundation.org"]
+                      exceptions = (["http://wikimediafoundation.org/", "http://wikimediafoundation.org/wiki/Deductibility_of_donations", "http://wikimediafoundation.org/wiki/Fundraising", "http://wikimediafoundation.org/wiki/Privacy_policy", "http://www.mediawiki.org/", "http://www.wikimediafoundation.org"] :: [B.ByteString])
 
 fetchArticleURLs :: B.ByteString -> IO [B.ByteString]
 fetchArticleURLs = fmap extractURLs . unsafeInterleaveIO . openURL . ("http://en.wikipedia.org/wiki/" ++) . B.unpack
