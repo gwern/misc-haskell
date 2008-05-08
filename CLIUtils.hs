@@ -156,7 +156,7 @@ rpt = cycle
 
 -- Preserve first n lines
 headN :: Int -> String -> String
-headN n ss = concat $ genericTake n $ lines ss
+headN n = concat . genericTake n . lines
 
 -- Return only the first 10
 head10 :: String -> String
