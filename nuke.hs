@@ -4,7 +4,6 @@
 --    where
 -- TODO: work in radiation deaths.
 
-import Pcheck (parCheck, parTest)
 import Test.QuickCheck
 import Control.Monad (liftM3)
 import Data.List (sort)
@@ -69,19 +68,16 @@ data Output = Output {
       blast :: PosReal,
       nuclear_radiation :: PosReal } deriving (Show, Eq)
 
-main :: IO ()
-main = do bool <- parTest [kpaTest, psiTest, energyTest, thermalMaxTest, timeMaxTest, kpaTest] --, psiTest, energyTest, thermalMaxTest, timeMaxTest, kpaTest, psiTest, energyTest, thermalMaxTest, timeMaxTest]
-          if bool then print "Success" else print "Failure"
 -- Units
 kpaTest :: IO Bool
-kpaTest = parCheck (\s -> kpa s >= 0) 1000
+kpaTest = deepCheck (\s -> kpa s >= 0 && increasing kpa s)
 kpa :: KiloPascal -> PSI
 kpa a
     | (a > 0) = 0.145 * a
     | otherwise = 0
 
 psiTest :: IO Bool
-psiTest = parCheck (\s -> psi s >= s) 100
+psiTest = deepCheck (\s -> psi s >= s && increasing psi s)
 psi :: PSI -> KiloPascal
 psi = (6.895 *)
 
@@ -91,15 +87,18 @@ meter = (3.281 *)
 foot :: PosReal -> PosReal
 foot = (0.3048 *)
 
--- Find ideal height for an air burst.
+-- | Find ideal height for an air burst.
+heightTest :: IO Bool
+heightTest = deepCheck (\s -> height s > 0 && increasing height s)
 height :: W -> Float
 --height w = 60 * (1 / (w * w * w)) -- w^3
-height w = 60 * ((fromPosReal w)**(1/3))
+height w | w < 0.5   = 1
+         | otherwise = 60 * ((fromPosReal w)**(1/3))
 
 {- | Calculate total energy of a given kilotonnage. Answer in joules.
    This works because critical mass gives a lower kilotonnage bound for fission bombs. -}
 energyTest :: IO Bool
-energyTest = parCheck (\s -> energy s == 0 || energy s >= 2.0929999e12) 100
+energyTest = deepCheck (\s -> energy s == 0 || energy s >= 2.0929999e12 && increasing energy s)
 energy :: W -> Joule
 energy s
     | s >= 0.5 = 4.186 * joule * s
@@ -143,12 +142,12 @@ peakOverPressureUnderWater w r = 1.07e7 * (1 / (w / 0.37)) * (1 / (r / (-1.18)))
 -- thermal deaths - pmax = kJ/m^2
 --thermalMax = 270 -- incapacitation
 thermalMaxTest :: IO Bool
-thermalMaxTest = parCheck (\s -> (thermalMax s s s s) >= 0) 100
+thermalMaxTest = deepCheck (\s -> (thermalMax s s s s) >= 0)
 thermalMax :: Meters -> Joule -> Joule -> Joule -> Joule
 thermalMax w r clouds snow = (0.38 * (totalPointImpact w r clouds snow)) / timeMax w
 
 timeMaxTest :: IO Bool
-timeMaxTest = parCheck (\s -> timeMax s >= 0) 100
+timeMaxTest = deepCheck (\s -> timeMax s >= 0)
 timeMax :: W -> Time
 timeMax w = 0.0417 * (1 / (w / 0.44))
 
