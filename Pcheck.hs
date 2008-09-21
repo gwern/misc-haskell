@@ -1,8 +1,8 @@
 module Pcheck (parTest, parCheck) where
 
-import Control.Monad (replicateM_, liftM)
-import Control.Concurrent.Chan (newChan, writeChan, getChanContents)
 import Control.Concurrent (forkIO)
+import Control.Concurrent.Chan (newChan, writeChan, getChanContents)
+import Control.Monad (replicateM_, liftM)
 import Test.QuickCheck (quickCheck', Testable())
 
 -- | Takes a list of functions using parCheck, and returns True iff all return
