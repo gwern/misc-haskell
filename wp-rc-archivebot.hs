@@ -1,92 +1,102 @@
 import Control.Concurrent (forkIO)
-import Control.Monad
-import Data.Char
-import Data.List
-import Data.Maybe
+import Control.Monad (liftM, forM_)
+import Data.Char (intToDigit)
+import Data.List (isInfixOf, isPrefixOf, foldl', deleteBy, nubBy)
+import Data.Maybe (fromJust)
 import Network.HTTP hiding (port)
-import Network.Stream
+import Network.Stream (ConnError)
 import Network.URI
-import System.Environment
-import System.IO
-import Text.Feed.Import
-import Text.Feed.Types
+import System.Environment (getArgs)
+
 import Text.HTML.TagSoup (parseTags, Tag(TagOpen))
-import Text.RSS.Syntax
-import qualified Data.ByteString.Char8 as B
-import qualified Data.ByteString.Lazy as BS
+
+import Text.Feed.Import (parseFeedString)
+import Text.Feed.Types (Feed(RSSFeed))
+import Text.RSS.Syntax (rssChannel, rssItems, RSSItem(..))
 
 main :: IO ()
 main = do args <- getArgs
-          let url = head args
-          print "Starting"
-          reader url
+          -- Webcite requires a valid email, and they filter out public
+          -- emails like mailinator.com. So we demand an email from the user.
+          let email = head args
+          -- This is largely intended for the English Wikipedia, so we default to En's NewPages
+          -- but we let the user override; any second argument is assumed to be a MediaWiki RSS
+          let url = if length args > 1 then args !! 1
+                     else "http://en.wikipedia.org/w/index.php?title=Special:NewPages&feed=rss"
+          reader email url
 
-archiveBot :: String -> IO ()
-archiveBot ls = print ls >> (liftM uniq $ fetchArticleURLs ls) >>= mapM_ archiveURL
-                where uniq :: [String] -> [String] -- So hideous
-                      uniq = filter (\x -> not $ or $ map (isInfixOf x) exceptions)
-                      exceptions = ["http://wikimediafoundation.org/", "http://wikimediafoundation.org/wiki/Deductibility_of_donations", "http://wikimediafoundation.org/wiki/Fundraising", "http://wikimediafoundation.org/wiki/Privacy_policy", "http://www.mediawiki.org/", "http://www.wikimediafoundation.org", "&curid=", "index.php?title="]
+-- inspiried by rss2irc
+-- | wait on an RSS thread, updating every so often. Each RSS item links to some diff or page,
+-- in addition to whatever other content the RSS item may contain (date, summary, etc.) 
+-- This runs 'archiveBot' on just that link, ignoring the rest.
+reader :: String -> String -> IO ()
+reader email url = items url >>= go
+ where
+   go old = do new <- items url
+               -- remove duplicates
+               let diff = foldl' (flip $ deleteBy matchingTitles) new old
+               forM_ (take 100 diff) $ \itm ->
+                case rssItemLink itm of
+                    Nothing -> return ()
+                    Just t  -> ignore $ forkIO $ archiveBot email t
+               go new
 
+   matchingTitles :: RSSItem -> RSSItem -> Bool
+   matchingTitles x y = let title = (fromJust . rssItemTitle) in title x == title y
+
+   -- Actually fetch a RSS feed and turn it from String to [RSSItem]
+   items :: String -> IO [RSSItem]
+   items rurl = do s <- get' rurl
+                   let RSSFeed r = fromJust $ parseFeedString s
+                   return $ nubBy matchingTitles $ rssItems $ rssChannel r
+
+-- | Given the URL of an article, we suck down the HTML, grep it for http:// links,
+-- filter out certain links that we don't want to archive (boilerplate links, interwiki links)
+-- and then fire off an archive request for each link left.
+archiveBot :: String -> String -> IO ()
+archiveBot email ls = liftM uniq (fetchArticleURLs ls) >>= mapM_ (archiveURL email)
+ where  uniq :: [String] -> [String] -- So hideous
+        uniq = filter (\x ->not $ any (flip isInfixOf x) exceptions)
+        exceptions :: [String]
+        exceptions = ["wikimediafoundation", "http://www.mediawiki.org/", "wikipedia", 
+                      "&curid=", "index.php?title=", "&action="]
+
+-- | Run 'extractURLs' on some page's raw HTML
 fetchArticleURLs ::  String -> IO [String]
-fetchArticleURLs x = print x >> (fmap extractURLs $ get' x)
+fetchArticleURLs = fmap extractURLs . get'
 
-unlazy :: BS.ByteString -> String
-unlazy = B.unpack . B.concat . BS.toChunks
-
+-- | Use the TagSoup library to extract all the hyperlinks in a page. This is really parsing the HTML,
+-- so hopefully there won't be any spurious links.
 extractURLs :: String -> [String]
-extractURLs arg = [x | TagOpen "a" atts <- (parseTags arg), (_,x) <- atts, "http://" `isPrefixOf` x]
+extractURLs arg = [x | TagOpen "a" atts <- parseTags arg, (_,x) <- atts, "http://" `isPrefixOf` x]
 
-archiveURL :: String -> IO ()
-archiveURL url = forkIO (get' ("www.webcitation.org/archive?url=" ++ url ++ "&email=m@mailinator.com") >> return()) >> return ();
+-- | Webcitation.org is set up so one can archive a url just by doing a request for 'webcitation.org/archive?url=url&email=email'
+-- So it's very easy, given a URL and an email, to archive a page. You don't even need to see what the response was.
+archiveURL :: String -> String -> IO ()
+archiveURL email url = print url' >> ignore (get' url')
+              where url' = "http://www.webcitation.org/archive?url=" ++ escapeURIString isAllowedInURI url ++ "&email=" ++ email
 
--- stolen from rss2irc & modified
--- | wait on an RSS thread, updating every interval seconds
-reader ::  String -> IO ()
-reader url = do
-  print "reader"
-  initialitems <- items url
-  print "initial done"
-  go initialitems
-  print "go"
-  where
-    go old = do
-        new <- items url
-        print "items done"
-        let diff = (foldl' (flip (deleteBy matchingTitles)) new old)
-        forM_ (take 1000 diff) $ \item -> do
-            case rssItemLink item of
-                Nothing -> return ()
-                Just t  -> archiveBot t
-        go new
-
-
-items :: String -> IO [RSSItem]
-items url = do
-  print url
-  s <- get $ fromJust $ parseURI url
-  print "parseURI done"
-  let RSSFeed r = fromJust $ parseFeedString s
-  return $ nubBy matchingTitles $ rssItems $ rssChannel r
-
-matchingTitles :: RSSItem -> RSSItem -> Bool
-matchingTitles x y = title x == title y
-                     where title = fromJust . rssItemTitle
-
+-- | Convenient wrapper over the complexity of Network.HTTP. Given a URL, we get the raw HTML. No fuss, no muss.
+-- Of course, this means we paper over a bunch of possible errors and issues, but we've no time for them! There are links to archive!
+get' :: String -> IO String
 get' = get . fromJust . parseURI
+ where get :: URI -> IO String
+       get uri = do resp <- simpleHTTP (request uri) >>= handleE (error . show)
+                    case rspCode resp of
+                        (2,0,0) -> return (rspBody resp)
+                        _ -> error (httpError resp)
+           where
+               httpError resp = showRspCode (rspCode resp) ++ " " ++ rspReason resp
+               showRspCode (a,b,c) = map intToDigit [a,b,c]
 
-get :: URI -> IO String
-get uri = do
-  resp <- simpleHTTP (request uri) >>= handleE (error . show)
-  case rspCode resp of
-    (2,0,0) -> return (rspBody resp)
-    _ -> error (httpError resp)
-    where
-      httpError resp = showRspCode (rspCode resp) ++ " " ++ rspReason resp
-      showRspCode (a,b,c) = map intToDigit [a,b,c]
+               request :: URI -> Request String
+               request ur = Request{rqURI=ur, rqMethod=GET, rqHeaders=[], rqBody=""}
 
-request :: URI -> Request String
-request uri = Request{rqURI=uri, rqMethod=GET, rqHeaders=[], rqBody=""}
+               handleE :: Monad m => (ConnError -> m a) -> Either ConnError a -> m a
+               handleE h (Left e) = h e
+               handleE _ (Right v) = return v
 
-handleE :: Monad m => (ConnError -> m a) -> Either ConnError a -> m a
-handleE h (Left e) = h e
-handleE _ (Right v) = return v
+-- | Convenience function. 'forkIO' and 'forM_' demand return types of 'IO ()', but most interesting
+-- IO functions don't return void. So one adds a call to 'return ()'; this just factors it out.
+ignore ::(Monad m) => m a -> m ()
+ignore x = x >> return ()
