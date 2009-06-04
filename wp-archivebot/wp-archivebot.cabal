@@ -30,5 +30,5 @@ executable wp-archivebot
                    tagsoup,
                    network,
                    HTTP
-    build-depends: base >= 3, parallel
+    build-depends: base >= 3 && < 4, parallel
     ghc-options:   -Wall
