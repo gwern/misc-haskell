@@ -27,7 +27,7 @@ main = do args <- getArgs
 
 -- inspiried by rss2irc
 -- | wait on an RSS thread, updating every so often. Each RSS item links to some diff or page,
--- in addition to whatever other content the RSS item may contain (date, summary, etc.) 
+-- in addition to whatever other content the RSS item may contain (date, summary, etc.)
 -- This runs 'archiveBot' on just that link, ignoring the rest.
 reader :: String -> String -> IO ()
 reader email url = items url >>= go
@@ -58,7 +58,7 @@ archiveBot email ls = liftM uniq (fetchArticleURLs ls) >>= mapM_ (archiveURL ema
  where  uniq :: [String] -> [String] -- So hideous
         uniq = filter (\x ->not $ any (flip isInfixOf x) exceptions)
         exceptions :: [String]
-        exceptions = ["wikimediafoundation", "http://www.mediawiki.org/", "wikipedia", 
+        exceptions = ["wikimediafoundation", "http://www.mediawiki.org/", "wikipedia",
                       "&curid=", "index.php?title=", "&action="]
 
 -- | Run 'extractURLs' on some page's raw HTML
