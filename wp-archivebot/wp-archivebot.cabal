@@ -31,3 +31,4 @@ executable wp-archivebot
                    network,
                    HTTP
     build-depends: base >= 3, parallel
+    ghc-options:   -Wall
