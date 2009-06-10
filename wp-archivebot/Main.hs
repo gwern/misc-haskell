@@ -98,5 +98,5 @@ get' = get . fromJust . parseURI
 
 -- | Convenience function. 'forkIO' and 'forM_' demand return types of 'IO ()', but most interesting
 -- IO functions don't return void. So one adds a call to 'return ()'; this just factors it out.
-ignore ::(Monad m) => m a -> m ()
-ignore x = x >> return ()
+ignore :: Functor f => f a -> f ()
+ignore = fmap $ const ()
