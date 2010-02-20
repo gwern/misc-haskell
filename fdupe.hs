@@ -1,12 +1,7 @@
-import Data.List.Split (splitWhen)
-import Control.Monad (liftM)
+import Data.List.Split (splitOn)
 
 main :: IO ()
-main = do arg <- liftM (concat . map (fun . lines) . breakBlankLines) $ getContents
-          mapM_ putStrLn arg
+main = interact (unlines . map (linkify . lines) . splitOn "\n\n") 
 
-breakBlankLines :: String -> [String]
-breakBlankLines = map (\x -> if head x == '\n' then tail x else x) . filter (not . (==) "") . map concat . splitWhen (=="") . splitWhen (=='\n')
-
-fun :: [String] -> [String]
-fun strs = map (\x -> "ln -sf " ++ "\'" ++ (head strs) ++ "\' " ++ "\'" ++ x ++ "\'") $ tail strs
+linkify :: [String] -> String
+linkify (x:xs) = unlines $ map (\y -> "ln -sf " ++ show x ++ " " ++ show y) xs
