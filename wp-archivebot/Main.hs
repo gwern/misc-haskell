@@ -56,7 +56,7 @@ archiveBot email ls = liftM uniq (fetchArticleURLs ls) >>= mapM_ (archiveURL ema
  where  uniq :: [String] -> [String] -- So hideous
         uniq = filter (\x ->not $ any (flip isInfixOf x) exceptions)
         exceptions :: [String]
-        exceptions = ["wikimediafoundation", "http://www.mediawiki.org/", "wikipedia",
+        exceptions = ["wikimediafoundation", "http://www.mediawiki.org/", "wikipedia", "creativecommons.org",
                       "&curid=", "index.php?title=", "&action="]
 
 -- | Run 'extractURLs' on some page's raw HTML
@@ -71,7 +71,7 @@ extractURLs arg = [x | TagOpen "a" atts <- parseTags arg, (_,x) <- atts, "http:/
 -- | Webcitation.org is set up so one can archive a url just by doing a request for 'webcitation.org/archive?url=url&email=email'
 -- So it's very easy, given a URL and an email, to archive a page. You don't even need to see what the response was.
 archiveURL :: String -> String -> IO ()
-archiveURL email url = print url' >> ignore (openURL url')
+archiveURL email url = putStrLn url' >> ignore (openURL url')
               where url' = "http://www.webcitation.org/archive?url=" ++ escapeURIString isAllowedInURI url ++ "&email=" ++ email
 
 -- | Convenient wrapper over the complexity of Network.HTTP. Given a URL, we get the raw HTML. No fuss, no muss.
