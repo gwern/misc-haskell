@@ -220,8 +220,9 @@ Are we tired of this program yet? I've thought of one last and particularly nast
 
 But here is the final, ugly, fast and frugal version. This combines the lazy IO covered previously and adds in the hardwired filter.
 
+TODO: update
 > module Main () where
-> import Monad (liftM) -- Is there any particular order you're s'posed to go in?
+> import Control.Monad (liftM) -- Is there any particular order you're s'posed to go in?
 > import Data.List (isPrefixOf)
 > import Control.Concurrent (forkIO)
 > import System.IO.Unsafe (unsafeInterleaveIO)
